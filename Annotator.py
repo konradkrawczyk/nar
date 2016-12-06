@@ -135,9 +135,10 @@ def parsePSA(psafile):
 
 def runPSA(pdb_file,where_to):
 	dobavka = ""
+	#If we are on a mac, run the mac version.
 	if (sys.platform=='darwin'):
 		dobavka = "_mac"
-	os.system(local_path+"/aux/./psa"+dobavka+" -t "+pdb_file+" > "+where_to)
+	os.system(join(local_path,"aux","./psa"+dobavka)+" -t "+pdb_file+" > "+where_to)
 
 #Create a temporary folder in the user directory - return it so that we can do whatever with it
 def create_temp_folder():
@@ -207,9 +208,20 @@ def read_charge(f_in):
 #Which of the four classes do we belong to: positive, negative, hydrophobic or none
 residue_classes = ['hydrophobic','positive','negative']
 
-def CreateAnnotation(annotation_index,which_ph,input_file,output_fold):
+#Create the full annotations.
+#Input:
+#annotation_index: [0,1,2,3,4], hydrophobicity index corresponding to:
+#0: Gravy - Kyte & Doolttle (1982)
+#1: Wimley & White (1996)
+#2: Hessa et al. (2005)
+#3: Eisenberg & McLachlan (1986)
+#4: Black & Mould (1990)
+#which_ph: if we are doing charge annotatinos, this specifies the pH.
+#output_file: the output file to write to.
+#chains: the two chains of heavy and light. e.g. GJ
+def CreateAnnotation(annotation_index,which_ph,input_file,output_file,chains):
 
-	results_folder = join(local_path,output_fold,str(annotation_index))
+	
 	
 	#Initialize the hydrophobic mappings
 	hydrophobics = dict()
@@ -219,90 +231,74 @@ def CreateAnnotation(annotation_index,which_ph,input_file,output_fold):
 	#Normalize the hydrophobics
 	hydrophobicity_annotation = normalize(hydrophobics,annotation_index)
 	#Where the input files are. TODO parametrize.
-	mypath = join(local_path,input_fold)
-	onlyfiles = [ f for f in listdir(mypath) if isfile(join(mypath,f)) and f.endswith(".pdb") ]
-	done = 0
-	stats = dict()
+	#Get the temporary directory.
+	temp_dir = create_temp_folder()
 	
-	if not os.path.exists(results_folder):
-		os.mkdir(results_folder)
-	if not os.path.exists(local_path+'/contact_maps'):
-		os.mkdir(local_path+'/contact_maps')
-	if not os.path.exists(local_path+'/surfaces'):
-		os.mkdir(local_path+'/surfaces')
-	for f_in in onlyfiles:
+	os.mkdir(join(temp_dir,'surface'))
+	
+	
+	
 
+	print "Temporary results stored in", temp_dir
+
+	#1 Number the antibody using chothia.
+	from Common.Renumber import constrain_antibody
+	#The chothia-numbered file we will be dealing with.
+	chothia_file = join(temp_dir,'input.pdb')
+	constrain_antibody(input_file,chains,'chothia',chothia_file)
+
+	
+
+	
+	#2. Get surface exposed residues by running PSA
+	surface_file = join(temp_dir,'surface','result.psa')
+	#Where the surface file will live
+	runPSA( chothia_file,surface_file)
+	asa = parsePSA(surface_file)
+	asa_area = parsePSAArea(surface_file)
+
+	#!!!3 Get charge data [DISABLED]
+	#This is the main result object where we store all the results.
+	stats = dict()
+	#Do this for sanity so that you do not make a mistake when plotting wrong hydro indexes against each other.
+	stats[annotation_index] = dict()
+	
 		
-		done+=1
+	ab_structure = {'H':PDBchain( chothia_file,'H'),'L':PDBchain( chothia_file,'L')}
+
+	residues = dict()
+	for chain in ['H','L']:
+		for elem in sorted(ab_structure[chain].residues):
+			#Ignore entries which are on the VC interface.
+			if is_not_VC_interface(chain+str(elem[0]),'chothia')==False:
+				#print chain+str(elem[0]),'on the vc interface, ignoring...'
+				continue
+
+			#Get the residue type here.
+			typ = ab_structure[chain].residues[elem].res_type
+			r_elem = {'res':ab_structure[chain].residues[elem],'typ':typ,'charged':None,'hydrophobic':None,'asa':None,'asa_sum':None}
+			bfact = 0
+			res_asa = 0
+			res_asa_area = 0
+			try:
+				res_asa = asa[chain][str(elem[0])+elem[1]]
+				res_asa_area = asa_area[chain][str(elem[0])+elem[1]]
+			except KeyError:
+			#	#TODO Sometimes ASA skips residues -- especially the terminal ones.
+				print "ASA ERROR",f_in
+				quit()
+			if res_asa< 7.5:#Do not bother with buried residues.
+				continue
+			#print elem,res_asa, "Residue is exposed, continuing"
+			r_elem['asa'] = res_asa
+			r_elem['asa_sum'] = res_asa_area
+				
+			r_elem['hydrophobic'] = float(hydrophobicity_annotation[typ])
 		
-		print done,'/',len(onlyfiles)
-		print f_in
-		stats[f_in] = dict()
-		#Get surface exposed residues by running PSA
-		runPSA( join(local_path,input_fold,f_in),'surfaces/'+f_in)
-		asa = parsePSA('surfaces/'+f_in)
-		asa_area = parsePSAArea('surfaces/'+f_in)
-		pdbchain = PDBchain( join(local_path,input_fold,f_in),'H')
-		#READ CHARGE DATA
-		try:
-			ch_map,pka_map,summary_charge,pka_max,pka_min,ch_max,ch_min = read_charge(f_in)
-		except IOError:
-			#TODO background issue
-			print "IOError",f_in
 			
-			continue		
-		#Get the residue objects
-		ab_structure = {'H':PDBchain( join(local_path,input_fold,f_in),'H'),'L':PDBchain( join(local_path,input_fold,f_in),'L')}
-
-		residues = dict()
-		for chain in ['H','L']:
-			for elem in sorted(ab_structure[chain].residues):
-
-				#Ignore entries which are on the VC interface.
-				if is_not_VC_interface(chain+str(elem[0]),'chothia')==False:
-					#print chain+str(elem[0]),'on the vc interface, ignoring...'
-					continue
-
-				#Get the residue type here.
-				typ = ab_structure[chain].residues[elem].res_type
-				r_elem = {'res':ab_structure[chain].residues[elem],'typ':typ,'charged':None,'hydrophobic':None,'asa':None,'asa_sum':None}
-				bfact = 0
-				res_asa = 0
-				res_asa_area = 0
-				try:
-					res_asa = asa[chain][str(elem[0])+elem[1]]
-					res_asa_area = asa_area[chain][str(elem[0])+elem[1]]
-				except KeyError:
-				#	#TODO Sometimes ASA skips residues -- especially the terminal ones.
-					print "ASA ERROR",f_in
-					continue
-				if res_asa< 7.5:#Do not bother with buried residues.
-					continue
-				#print elem,res_asa, "Residue is exposed, continuing"
-				r_elem['asa'] = res_asa
-				r_elem['asa_sum'] = res_asa_area
-				#Do not bother if the entries are not CDRs.
-				#TODO: parametrize on whether we want to look at CDR data.			
-				#if is_CDR(chain+str(elem[0]),'chothia')== False:
-					#for atom in ab_structure[chain].residues[elem].atoms:
-						#f_out.write(pdbchain.color_line(atom.pdb_line, str(bfact)+'.00')+'\n')
-				#	continue	
-				#Hydrophobicity value
-				r_elem['hydrophobic'] = float(hydrophobicity_annotation[typ])
-		
-				#Charge
-				#If a residue can be associated with charge-- make it charged. Everything else is just different shades of hydrophbic
-				chentry = chain+str(elem[0])+str(elem[1])
-				if chentry in ch_map:
-					#print  'Charge', ch_map[chentry]
-					charge = float(ch_map[chentry])
-					if charge>0:
-						r_elem['positive'] = charge
-					else:
-						r_elem['negative'] = charge
 					
 				
-				residues[(chain,elem)] = r_elem
+			residues[(chain,elem)] = r_elem
 		
 		#Define CDR neighborhood- so as not to calculate CDRs only...
 		cdr_vicinity = []
@@ -342,51 +338,30 @@ def CreateAnnotation(annotation_index,which_ph,input_file,output_fold):
 		#Number of residues on surface
 		#Surface Area- entire mol [v]
 		#Surface Area, hydrophobicity-weighted- entire mol [v]
-		#Summary Charge [v]
-		#Positive charge sum- entire mol
-		#Negative charge sum- entire mol	
 		#Adjecency matrix- entire molecule
-		print "Summary charge",summary_charge[7.5]
 		#Calculate the total surface area
 		total_area = 0.0
 		#hydrophobicity-scaled area
 		h_asa_total = 0.0
-		#positive charge sum
-		pos_charge_total = 0.0
-		#negative charge sum
-		neg_charge_total = 0.0
 		for r1 in residues:
 			total_area+=residues[r1]['asa_sum']
 			h_asa_total+=residues[r1]['asa_sum']*residues[r1]['hydrophobic']
-			if 'negative' in residues[r1]:
-				neg_charge_total+=residues[r1]['negative']
-			if 'positive' in residues[r1]:
-				pos_charge_total+=residues[r1]['positive']
+			
 		#Calculate CDR only area
 		cdr_area = 0.0
 		#Calcualte the CDR only hasa
 		h_asa_cdr = 0.0
-		#positive charge sum
-		pos_charge_cdr = 0.0
-		#negative charge sum
-		neg_charge_cdr = 0.0
 		#Only look at the residues in the immediate vicinity of the CDRs
 		for r1 in cdr_vicinity:
 			
 			cdr_area+=residues[r1]['asa_sum']
 			h_asa_cdr+=residues[r1]['asa_sum']*residues[r1]['hydrophobic']
-			if 'negative' in residues[r1]:
-				neg_charge_cdr+=residues[r1]['negative']
-			if 'positive' in residues[r1]:
-				pos_charge_cdr+=residues[r1]['positive']
+			
 		print "Total Area",total_area
 		print "CDR area",cdr_area
 		print "Total hASA",h_asa_total
 		print "CDR hASA",h_asa_cdr
-		print "Negative charge, total",neg_charge_total
-		print "Negative charge, CDR",neg_charge_cdr
-		print "Positive charge, total",pos_charge_total
-		print "Positive charge, CDR",pos_charge_cdr
+		
 		
 		#PREPARE OUTPUT DATA- ENTIRE MOLECULE
 		#ADJECENCY MATRIX FOR THE ENTIRE MOLECULE
@@ -403,6 +378,7 @@ def CreateAnnotation(annotation_index,which_ph,input_file,output_fold):
 					res1 = residues[r1]['res']
 					res2 = residues[r2]['res']
 					d = res2.distance(res1,res2)
+					#Adjecency matrix looks only at values within 7.5 A from each other.
 					if d>7.5:
 						continue
 					for c1 in residue_classes:	
@@ -412,6 +388,7 @@ def CreateAnnotation(annotation_index,which_ph,input_file,output_fold):
 								
 								coulombic_score = (residues[r1][c1]*residues[r2][c2])/(d*d)
 								adj_matrix[c1][c2] +=coulombic_score
+		
 		#ADJECENCY MATRIX FOR THECDRs only
 		adj_matrix_cdr = dict()
 		for i in residue_classes:
@@ -426,6 +403,7 @@ def CreateAnnotation(annotation_index,which_ph,input_file,output_fold):
 					res1 = residues[r1]['res']
 					res2 = residues[r2]['res']
 					d = res2.distance(res1,res2)
+					#Adjecency matrix looks only at values within 7.5 A from each other.
 					if d>7.5:
 						continue
 					for c1 in residue_classes:	
@@ -441,22 +419,21 @@ def CreateAnnotation(annotation_index,which_ph,input_file,output_fold):
 		print "Adjecency matrix CDR:",adj_matrix_cdr
 		#Full statistics used for calculations.		
 		stats = dict()
-		stats['adj_cdr'] = adj_matrix_cdr
-		stats['adj_tot'] = adj_matrix
-		stats['area_tot'] = total_area
-		stats['cdr_area'] = cdr_area
-		stats['hasa_tot'] = h_asa_total
-		stats['hasa_cdr'] = h_asa_cdr		
-		stats['neg_tot'] = neg_charge_total
-		stats['neg_cdr'] = neg_charge_cdr
-		stats['pos_tot'] = pos_charge_total
-		stats['pos_cdr'] = pos_charge_cdr
-		stats['total_exposed'] = len(residues)
-		stats['num_cdrs'] = number_cdr_residues
-		stats['tot_vicinity'] = len(cdr_vicinity)
-		stats['total_charge'] = summary_charge[7.5]
+		stats[annotation_index] = dict()
+		stats[annotation_index]['adj_cdr'] = adj_matrix_cdr
+		stats[annotation_index]['adj_tot'] = adj_matrix
+		stats[annotation_index]['area_tot'] = total_area
+		stats[annotation_index]['cdr_area'] = cdr_area
+		stats[annotation_index]['hasa_tot'] = h_asa_total
+		stats[annotation_index]['hasa_cdr'] = h_asa_cdr		
 		
- 		pickle.dump(stats,open(join(results_folder,f_in),'w'))
+		stats[annotation_index]['total_exposed'] = len(residues)
+		stats[annotation_index]['num_cdrs'] = number_cdr_residues
+		stats[annotation_index]['tot_vicinity'] = len(cdr_vicinity)
+		pickle.dump(stats,open(output_file,'w'))
+		
+		#remove the temp files
+		os.system('rm -rf '+temp_dir)
 		#f_out.close()
 			
 		#quit()
@@ -469,13 +446,17 @@ if __name__ == '__main__':
 	#2: Hessa et al. (2005)
 	#3: Eisenberg & McLachlan (1986)
 	#4: Black & Mould (1990)
-
+	#USAGE:
+	#python Annotator.py [hydrpohobic annotation(see above)] [input_file] [ab chains] [output_file]
+	#python Annotator.py 0 examples/cristian.pdb IG results.txt
 	#Get the local path.
 	local_path = os.path.dirname(os.path.realpath(__file__))
 	#Which ph value to use.
 	#We used to run the charge calculations on 	
-	#pH = sys.argv[1]
-	input_fold = sys.argv[2]
-	output_fold = sys.argv[3]
-	annotation =0
-	CreateAnnotation(annotation,float(pH),input_fold,output_fold)
+	pH = 7.4
+	annotation = sys.argv[1]
+	input_file = sys.argv[2]
+	chains = sys.argv[3]
+	output_file = sys.argv[4]
+	
+	CreateAnnotation(int(annotation),float(pH),input_file,output_file,chains)
