@@ -2,7 +2,7 @@
 from os import listdir
 import os,sys,tempfile
 from os.path import isfile, join
-from PDBUtils import PDBchain
+from Common.PDBUtils import PDBchain
 import pickle
 import numpy as np
 
