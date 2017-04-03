@@ -6,6 +6,8 @@ from Common.PDBUtils import PDBchain
 import pickle
 import numpy as np
 
+local_path = os.path.dirname(os.path.realpath(__file__))
+
 #remove the insertion codes from Chothia codes
 def stripChothia(res):
 	icode = "ZXCVBNMLKJHGFDSAWQERTYUIOP"
@@ -219,13 +221,13 @@ residue_classes = ['hydrophobic','positive','negative']
 #which_ph: if we are doing charge annotatinos, this specifies the pH.
 #output_file: the output file to write to.
 #chains: the two chains of heavy and light. e.g. GJ
-def CreateAnnotation(annotation_index,which_ph,input_file,output_file,chains):
+def CreateAnnotation(annotation_index,which_ph,input_file,output_file,chains,renumber=False):
 
 	
 	
 	#Initialize the hydrophobic mappings
 	hydrophobics = dict()
-	for line in open('Hydrophobics.txt'):
+	for line in open(join(local_path,'Hydrophobics.txt')):
 		line = line.strip().split('\t')
 		hydrophobics[line[0].upper()] = (float(line[1]),float(line[2]),float(line[3]),float(line[4]),float(line[5]))
 	#Normalize the hydrophobics
@@ -235,21 +237,18 @@ def CreateAnnotation(annotation_index,which_ph,input_file,output_file,chains):
 	temp_dir = create_temp_folder()
 	
 	os.mkdir(join(temp_dir,'surface'))
-	
-	
-	
 
 	print "Temporary results stored in", temp_dir
 
 	#1 Number the antibody using chothia.
-	from Common.Renumber import constrain_antibody
-	#The chothia-numbered file we will be dealing with.
 	chothia_file = join(temp_dir,'input.pdb')
-	constrain_antibody(input_file,chains,'chothia',chothia_file)
-
-	
-
-	
+	if renumber == True:
+		from Common.Renumber import constrain_antibody
+		#The chothia-numbered file we will be dealing with.
+		constrain_antibody(input_file,chains,'chothia',chothia_file)
+	else:#IF we are not told to renumber -- assuming that already chothia-numbered...
+	        #In such case the heavy is on H, light on L and we are assuming chothia numbering.
+		os.system('cp '+input_file+' '+chothia_file)
 	#2. Get surface exposed residues by running PSA
 	surface_file = join(temp_dir,'surface','result.psa')
 	#Where the surface file will live
@@ -263,7 +262,6 @@ def CreateAnnotation(annotation_index,which_ph,input_file,output_file,chains):
 	#Do this for sanity so that you do not make a mistake when plotting wrong hydro indexes against each other.
 	stats[annotation_index] = dict()
 	
-		
 	ab_structure = {'H':PDBchain( chothia_file,'H'),'L':PDBchain( chothia_file,'L')}
 
 	residues = dict()
@@ -296,8 +294,6 @@ def CreateAnnotation(annotation_index,which_ph,input_file,output_file,chains):
 			r_elem['hydrophobic'] = float(hydrophobicity_annotation[typ])
 		
 			
-					
-				
 			residues[(chain,elem)] = r_elem
 		
 		#Define CDR neighborhood- so as not to calculate CDRs only...
@@ -450,7 +446,7 @@ if __name__ == '__main__':
 	#python Annotator.py [hydrpohobic annotation(see above)] [input_file] [ab chains] [output_file]
 	#python Annotator.py 0 examples/cristian.pdb IG results.txt
 	#Get the local path.
-	local_path = os.path.dirname(os.path.realpath(__file__))
+	
 	#Which ph value to use.
 	#We used to run the charge calculations on 	
 	pH = 7.4
@@ -459,4 +455,4 @@ if __name__ == '__main__':
 	chains = sys.argv[3]
 	output_file = sys.argv[4]
 	
-	CreateAnnotation(int(annotation),float(pH),input_file,output_file,chains)
+	CreateAnnotation(int(annotation),float(pH),input_file,output_file,chains,renumber=True)

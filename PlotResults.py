@@ -23,18 +23,20 @@ def plot_linear(which_parameter,input_set):
 	#Plot the NGS reference data
 	models = load_data('NGS','linear',which_parameter)
 	mx_ngs = max(models)
-	plot_models(models,'linear','b')
+	plot_models(models,'NGS','b')
 	#Plot the therapeutic reference data.
 	models = load_data('Therapeutic','linear',which_parameter)
 	mx_ter = max(models)
 	
 	#Reference max value
 	mx = max([mx_ter,mx_ngs])
-	plot_models(models,'linear','g')
+	plot_models(models,'Therapeutics','g')
 
-	pyplot.plot([val,val],[0,0.03],'k',linewidth=3,label='Your antibody')
+	pyplot.plot([val,val],[0,0.01],'k',linewidth=3,label='Your antibody')
+	pyplot.xlabel('Linear H-ASA')
 	pyplot.legend()
-	pyplot.show()
+	pyplot.show()	
+	#pyplot.savefig('/homes/krawczyk/Downloads/Cristian.png')
 
 #Plot the data obtained -- the Patch score
 #which_parameter: according to which annotation score
@@ -115,10 +117,13 @@ if __name__ == '__main__':
 
 	import sys
 	#USAGE
-	#python PlotResults.py [linear/patch] [results_file] [hydrophobicity parameter]
+	#python PlotResults.py [results_file] [linear/patch] [hydrophobicity parameter]
 	#e.g. python PlotResults.py results.txt linear 0
 	hydrophobicity_score = int(sys.argv[3])
+	print "Hydrophobicity score",hydrophobicity_score
+	print "Performing",sys.argv[1]
 	if sys.argv[2] == 'linear':
+		print "Plotting linear"
 		plot_linear(hydrophobicity_score,sys.argv[1])
 	if sys.argv[2] == 'patch':
 		plot_patch(hydrophobicity_score,sys.argv[1])
