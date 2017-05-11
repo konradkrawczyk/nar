@@ -10,7 +10,7 @@ The two scores included are:
 
 In maths terms it is:
 
-SUM[for each residue R in CDR] ASA(R)*HYDROPHOBICITY(R,S)
+SUM[for each residue R in CDR+vicinity] ASA(R)*HYDROPHOBICITY(R,S)
 
 Where ASA(R) is the surface accessible area (absolute terms).
 
@@ -22,11 +22,13 @@ Where HYDROPHOBICITY(R,S) is the normalized hydrophobicity score according to sc
 #3: Eisenberg & McLachlan (1986)
 #4: Black & Mould (1990)
 
+NB: CDR vicinity is currently defined as 4.0 away from the CDRs proper (Chothia CDRs)
+
 2. Patch score - in human terms it is the measure of how big the hydrophobic surface is, allowing the proximal residues to reinforce the score (it favors hydrophobic residues clumped up rather than scattered on the surface).
 
 In mathematical terms:
 
-Sum Coulombic(R1,R2) | Residue R2 in CDRs, Residue R2 in CDRs, R1!=R2, where d(R1,R2)< 7.5A
+Sum Coulombic(R1,R2) | Residue R2 in CDR+vicinity, Residue R2 in CDR+vicinity, R1!=R2, where d(R1,R2)< 7.5A
 
 where Coulombic(R1,R2) = [HYDROPHOBICITY(R1,S)*HYDROPHOBICITY(R2,S)]/(d*d)
 
@@ -61,3 +63,4 @@ Allow for other schemes other than Chothia, Chothia CDRs.
 Comment better.
 Deal with Surface accessibility software failing every so often.
 Add ASA to the patch score?
+R-include the PROPKA charge information in the calculations -- currently they can just be confusing.
