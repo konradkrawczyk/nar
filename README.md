@@ -60,3 +60,4 @@ C. TODOs
 Allow for other schemes other than Chothia, Chothia CDRs.
 Comment better.
 Deal with Surface accessibility software failing every so often.
+Add ASA to the patch score?
