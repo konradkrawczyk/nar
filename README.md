@@ -24,6 +24,19 @@ Where HYDROPHOBICITY(R,S) is the normalized hydrophobicity score according to sc
 
 2. Patch score - in human terms it is the measure of how big the hydrophobic surface is, allowing the proximal residues to reinforce the score (it favors hydrophobic residues clumped up rather than scattered on the surface).
 
+In mathematical terms:
+
+Sum Coulombic(R1,R2) | Residue R2 in CDRs, Residue R2 in CDRs, R1!=R2, where d(R1,R2)< 7.5A
+
+where Coulombic(R1,R2) = [HYDROPHOBICITY(R1,S)*HYDROPHOBICITY(R2,S)]/(d*d)
+
+where d(R1,R2) is the distance in angstroms of two closest heavy atoms of residues R1, R2.
+
+Coulombic has NOTHING to do with charge -- it is just a shorthand to understand whats going on:
+
+if the two residues are both high hydrophobicity score -- this is rewarded.
+If the two residues are far apart: this is penalized.
+
 B. USAGE
 
 The pipeline is to firstly annotate a structure and then to 
