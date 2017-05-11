@@ -2,7 +2,7 @@ Natural Antibody Reference.
 
 A. EXPLANATION.
 
-These files serve to perform hydrophobic annotation of surfaces.
+These files serve to perform hydrophobic annotation of surfaces and compare them to the scores obtained from a comprehensive model of human antibody repertoire and therapeutic antibodies.
 
 The two scores included are:
 
@@ -52,6 +52,8 @@ Specific example: python Annotator.py 0 examples/cristian.pdb IG results.txt
 
 General Syntax: python PlotResults.py [results_file] [linear/patch] [hydrophobicity parameter]
 Specific example: python PlotResults.py results.txt linear 0
+
+Plotting will display your query antibody on the backdrop of the natural antibodies and therapeutic ones.
 
 C. TODOs
 
