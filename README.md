@@ -1,6 +1,6 @@
-Natural Antibody Reference.
+### Natural Antibody Reference.
 
-A. EXPLANATION.
+## A. EXPLANATION.
 
 These files serve to perform hydrophobic annotation of surfaces and compare them to the scores obtained from a comprehensive model of human antibody repertoire and therapeutic antibodies.
 
@@ -10,7 +10,9 @@ The two scores included are:
 
 In maths terms it is:
 
+```
 SUM[for each residue R in CDR+vicinity] ASA(R)*HYDROPHOBICITY(R,S)
+```
 
 Where ASA(R) is the surface accessible area (absolute terms).
 
@@ -39,22 +41,33 @@ Coulombic has NOTHING to do with charge -- it is just a shorthand to understand 
 if the two residues are both high hydrophobicity score -- this is rewarded.
 If the two residues are far apart: this is penalized.
 
-B. USAGE
+## B. USAGE
 
-The pipeline is to firstly annotate a structure and then to 
+The pipeline is to firstly annotate a structure and then to display where it 'sits' with respect to a comprehensive set of antibody structures. 
 
-It is advisable to feed it Chothia numbered sequence first!
+Please feed it Chothia numbered sequence first so if you youse ABodyBuilder, please have it number it according to Chothia!
 
 1. Annotate:
 
-General syntax: python Annotator.py [hydrpohobic annotation(see above)] [input_file] [ab chains] [output_file]
-Specific example: python Annotator.py 0 examples/cristian.pdb IG results.txt
+General syntax: 
+```
+python Annotator.py [hydrpohobic annotation(see above)] [input_file] [ab chains] [output_file]
+```
+Specific example:
+```
+python Annotator.py 0 examples/cristian.pdb IG results.txt
+```
 
 2. Display results.
 
-General Syntax: python PlotResults.py [results_file] [linear/patch] [hydrophobicity parameter]
-Specific example: python PlotResults.py results.txt linear 0
-
+General Syntax: 
+```
+python PlotResults.py [results_file] [linear/patch] [hydrophobicity parameter]
+```
+Specific example: 
+```
+python PlotResults.py results.txt linear 0
+```
 Plotting will display your query antibody on the backdrop of the natural antibodies and therapeutic ones.
 
 C. TODOs
